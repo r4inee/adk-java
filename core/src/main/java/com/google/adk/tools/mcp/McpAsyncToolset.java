@@ -69,6 +69,7 @@ public class McpAsyncToolset implements BaseToolset {
     private Object connectionParams = null;
     private ObjectMapper objectMapper = null;
     private @Nullable Object toolFilter = null;
+    private McpSessionManager mcpSessionManager;
 
     @CanIgnoreReturnValue
     public Builder connectionParams(ServerParameters connectionParams) {
@@ -100,11 +101,25 @@ public class McpAsyncToolset implements BaseToolset {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder mcpSessionManager(McpSessionManager mcpSessionManager) {
+      this.mcpSessionManager = mcpSessionManager;
+      return this;
+    }
+
     public McpAsyncToolset build() {
+      Preconditions.checkState(
+          connectionParams == null || mcpSessionManager == null,
+          "Only one of connectionParams or mcpSessionManager may be set, not both.");
+      Preconditions.checkState(
+          connectionParams != null || mcpSessionManager != null,
+          "One of connectionParams or mcpSessionManager must be set.");
       if (objectMapper == null) {
         objectMapper = JsonBaseModel.getMapper();
       }
-      if (connectionParams instanceof ServerParameters setSelectedParams) {
+      if (mcpSessionManager != null) {
+        return new McpAsyncToolset(mcpSessionManager, objectMapper, toolFilter);
+      } else if (connectionParams instanceof ServerParameters setSelectedParams) {
         return new McpAsyncToolset(setSelectedParams, objectMapper, toolFilter);
       } else if (connectionParams instanceof SseServerParameters sseServerParameters) {
         return new McpAsyncToolset(sseServerParameters, objectMapper, toolFilter);
@@ -113,6 +128,22 @@ public class McpAsyncToolset implements BaseToolset {
             "connectionParams must be either ServerParameters or SseServerParameters");
       }
     }
+  }
+
+  /**
+   * Initializes the McpAsyncToolset with a provided McpSessionManager.
+   *
+   * @param mcpSessionManager The session manager for MCP connections.
+   * @param objectMapper An ObjectMapper instance for parsing schemas.
+   * @param toolFilter An Optional containing either a ToolPredicate or a List of tool names.
+   */
+  McpAsyncToolset(
+      McpSessionManager mcpSessionManager, ObjectMapper objectMapper, @Nullable Object toolFilter) {
+    Objects.requireNonNull(mcpSessionManager);
+    Objects.requireNonNull(objectMapper);
+    this.objectMapper = objectMapper;
+    this.mcpSessionManager = mcpSessionManager;
+    this.toolFilter = toolFilter;
   }
 
   /**
